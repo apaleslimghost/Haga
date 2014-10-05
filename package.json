@@ -2,7 +2,7 @@
   "name": "haga",
   "version": "1.0.0",
   "description": "JSON project scaffolding",
-  "main": "index.js",
+  "main": "lib",
   "scripts": {
     "test": "mocha"
   },
