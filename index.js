@@ -1,7 +1,12 @@
-var flatten   = require('flat').flatten;
-var path      = require('path');
-var mkdirp    = require('mkdirp');
-var asyncEach = require('async-each');
+var fs         = require('fs');
+var flatten    = require('flat').flatten;
+var path       = require('path');
+var mkdirp     = require('mkdirp');
+var xtend      = require('xtend');
+var asyncEach  = require('async-each');
+var promptFor  = require('prompt-for');
+var handlebars = require('handlebars');
+var asyncEarlyError = require('async-early-error');
 
 var testScaf = {
 	prompt: ['name'],
@@ -35,5 +40,44 @@ function objMap(obj, fn) {
 	return out;
 }
 
-var files = scaffoldToPaths('foo', getScaffold().files);
-asyncEach(Object.keys(files).map(path.dirname), mkdirp, console.log);
+function asyncObjMap(obj, fn, cb) {
+	var out = {}, l = Object.keys(obj).length, erred = false;
+	for(var p in obj) {
+		fn(p, obj[p], asyncEarlyError(function(e) {
+			if(!erred) {
+				erred = true;
+				cb(e);
+			}
+		}, function(y) {
+			out[p] = y;
+			if(Object.keys(out).length === l) {
+				cb(null, out);
+			}
+		}));
+	}
+}
+
+function mkdirs(dirs, cb) {
+	asyncEach(dirs, mkdirp, cb);
+}
+
+function scaffold(folder, template, cb) {
+	var scaf  = getScaffold(template);
+	var files = scaffoldToPaths('foo', getScaffold().files);
+	var dirs  = Object.keys(files).map(path.dirname);
+
+	var handleError = asyncEarlyError(cb);
+
+	promptFor(scaf.prompt, {color: 'cyan'}, handleError(function(answers) {
+		mkdirs(dirs, handleError(function() {
+			var templated = objMap(files, function(file, template) {
+				return handlebars.compile(template)(xtend(answers, {file: file}));
+			});
+
+			asyncObjMap(templated, fs.writeFile, cb);
+		}));
+	}));
+}
+
+scaffold('foo', 'bar', console.log);
+
