@@ -79,5 +79,5 @@ function scaffold(folder, template, cb) {
 	}));
 }
 
-scaffold('foo', 'bar', console.log);
+module.exports = scaffold;
 
